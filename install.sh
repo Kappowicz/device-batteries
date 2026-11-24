@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Instaluje skrypt i widżet do katalogu domowego (przetrwa aktualizacje SteamOS)
-# i dodaje widżet na pierwszy panel Plasmy.
+# Installs the script and widget into the home directory (survives SteamOS updates)
+# and adds the widget to the first Plasma panel.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -17,9 +17,9 @@ if [ -n "$qdbus" ]; then
     var p = panels()[0], found = false;
     p.widgets().forEach(function (w) { if (w.type == "org.local.devicebatteries") found = true; });
     if (!found) p.addWidget("org.local.devicebatteries");
-    print(found ? "Widżet już jest na panelu" : "Dodano widżet na panel");'
+    print(found ? "Widget is already on the panel" : "Widget added to the panel");'
 else
-  echo "Brak qdbus: dodaj widżet ręcznie (prawy klik na panel → Dodaj widżety → \"Baterie urządzeń\")."
+  echo "qdbus not found: add the widget manually (right-click the panel → Add Widgets → \"Device Batteries\")."
 fi
 
 echo "Test:"

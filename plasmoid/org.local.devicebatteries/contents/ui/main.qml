@@ -11,7 +11,7 @@ PlasmoidItem {
     readonly property string cmd: "$HOME/.local/bin/device-batteries"
 
     preferredRepresentation: fullRepresentation
-    toolTipMainText: "Baterie urządzeń"
+    toolTipMainText: "Device Batteries"
     toolTipSubText: details
 
     fullRepresentation: MouseArea {

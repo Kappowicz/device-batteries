@@ -152,7 +152,7 @@ def main():
     kb = keyboard_battery()
     if kb is not None:
         short.append(f"⌨ {kb}%")
-        long_.append(f"Klawiatura Redragon K719: {kb}%")
+        long_.append(f"Redragon K719 keyboard: {kb}%")
 
     for model, pct, state, path in upower_devices():
         chg = "⚡" if state in ("charging", "fully-charged") else ""
@@ -164,7 +164,7 @@ def main():
         else:
             icon = "🔋"
         short.append(f"{icon} {pct}%{chg}")
-        long_.append(f"{model}: {pct}%{' (ładowanie)' if chg else ''}")
+        long_.append(f"{model}: {pct}%{' (charging)' if chg else ''}")
 
     for mac, name in connected_airpods():
         b = airpods_battery(mac)
@@ -179,7 +179,7 @@ def main():
         elif buds:
             short.append("🎧 " + "/".join(f"{k}{fmt(k)}" for k in buds))
         long_.append(f"{name}: " + ", ".join(
-            f"{ {'L': 'lewa', 'R': 'prawa', 'Case': 'etui'}[k]} {fmt(k)}" for k in ("L", "R", "Case") if k in b))
+            f"{ {'L': 'left', 'R': 'right', 'Case': 'case'}[k]} {fmt(k)}" for k in ("L", "R", "Case") if k in b))
 
     print("  ".join(short) if short else "🔋 —")
     for l in long_:

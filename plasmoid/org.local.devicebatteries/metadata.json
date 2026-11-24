@@ -1,8 +1,8 @@
 {
   "KPlugin": {
     "Id": "org.local.devicebatteries",
-    "Name": "Baterie urządzeń",
-    "Description": "Poziom baterii klawiatury, myszy i słuchawek",
+    "Name": "Device Batteries",
+    "Description": "Battery levels of keyboard, mouse and headphones",
     "Icon": "battery-good",
     "Authors": [{ "Name": "Kappowicz" }],
     "License": "MIT",
