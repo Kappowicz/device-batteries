@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+"""Battery levels of wireless devices for the Plasma panel widget.
+
+Line 1: compact summary for the panel.  Following lines: details for the tooltip.
+
+Keyboard: Redragon K719WG-RGB-PRO over its 2.4G receiver (320f:511c).
+The vendor HID interface (usage page 0xFF1C, report ID 4) answers command 0x1a;
+the first data byte of the reply is the battery percentage (same value as the LCD).
+Packet: [04][sum lo][sum hi][cmd][len][off lo][off hi][status][data...] (64 bytes),
+sum = 16-bit sum of bytes 3..63.
+"""
+import glob
+import os
+import select
+import socket
+import subprocess
+import time
+
+KB_HID_ID = "0003:0000320F:0000511C"
+
+
+def find_kb_hidraw():
+    for dev in glob.glob("/sys/class/hidraw/hidraw*"):
+        try:
+            with open(os.path.join(dev, "device/uevent")) as f:
+                ue = f.read()
+        except OSError:
+            continue
+        if KB_HID_ID in ue and "input1" in ue:
+            return "/dev/" + os.path.basename(dev)
+    return None
+
+
+def pkt(cmd, ln=0):
+    p = bytearray(64)
+    p[0] = 4
+    p[3] = cmd
+    p[4] = ln
+    s = sum(p[3:])
+    p[1], p[2] = s & 0xFF, (s >> 8) & 0xFF
+    return bytes(p)
+
+
+def keyboard_battery():
+    path = find_kb_hidraw()
+    if not path:
+        return None
+    try:
+        fd = os.open(path, os.O_RDWR | os.O_NONBLOCK)
+    except OSError:
+        return None
+    try:
+        while select.select([fd], [], [], 0)[0]:
+            os.read(fd, 128)
+        os.write(fd, pkt(0x1A, 1))
+        end = time.time() + 1.0
+        while time.time() < end:
+            if select.select([fd], [], [], 0.1)[0]:
+                d = os.read(fd, 128)
+                if len(d) > 8 and d[0] == 4 and d[3] == 0x1A and d[7] == 0:
+                    v = d[8]
+                    return v if 0 < v <= 100 else None
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+    return None
+
+
+def connected_airpods():
+    """MAC addresses of connected Bluetooth devices whose name contains 'AirPods'."""
+    try:
+        out = subprocess.run(["bluetoothctl", "devices", "Connected"],
+                             capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return []
+    res = []
+    for line in out.splitlines():
+        parts = line.split(" ", 2)
+        if len(parts) == 3 and parts[0] == "Device" and "airpods" in parts[2].lower():
+            res.append((parts[1], parts[2]))
+    return res
+
+
+def airpods_battery(mac):
+    """Battery via Apple's AAP protocol (L2CAP PSM 0x1001), as used by LibrePods.
+
+    Returns dict {'L': (pct, charging), 'R': ..., 'Case': ...} for components that report.
+    """
+    try:
+        s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_SEQPACKET, socket.BTPROTO_L2CAP)
+    except (OSError, AttributeError):
+        return None
+    try:
+        s.settimeout(4)
+        s.connect((mac, 0x1001))
+        s.send(bytes.fromhex("00000400010002000000000000000000"))  # handshake
+        s.send(bytes.fromhex("040004000f00ffffffff"))              # request notifications
+        end = time.time() + 4
+        while time.time() < end:
+            if not select.select([s], [], [], 0.3)[0]:
+                continue
+            d = s.recv(2048)
+            if len(d) >= 7 and d[:6] == b"\x04\x00\x04\x00\x04\x00":
+                n, res, i = d[6], {}, 7
+                names = {0x04: "L", 0x02: "R", 0x08: "Case"}
+                for _ in range(n):
+                    if i + 5 > len(d):
+                        break
+                    typ, lvl, st = d[i], d[i + 2], d[i + 3]
+                    i += 5
+                    if typ in names and st != 0x04 and lvl <= 100:  # 0x04 = disconnected
+                        res[names[typ]] = (lvl, st == 0x01)
+                return res
+    except OSError:
+        return None
+    finally:
+        s.close()
+    return None
+
+
+def upower_devices():
+    """Yield (model, percentage, state) for peripherals known to UPower."""
+    try:
+        paths = subprocess.run(["upower", "-e"], capture_output=True, text=True, timeout=5).stdout.split()
+    except Exception:
+        return
+    for p in paths:
+        if "DisplayDevice" in p or "/line_power" in p:
+            continue
+        try:
+            info = subprocess.run(["upower", "-i", p], capture_output=True, text=True, timeout=5).stdout
+        except Exception:
+            continue
+        kv = {}
+        for line in info.splitlines():
+            if ":" in line:
+                k, v = line.split(":", 1)
+                kv.setdefault(k.strip(), v.strip())
+        if kv.get("power supply") == "yes" or "percentage" not in kv:
+            continue
+        try:
+            pct = int(float(kv["percentage"].rstrip("%")))
+        except ValueError:
+            continue
+        yield kv.get("model", "?"), pct, kv.get("state", ""), p
+
+
+def main():
+    short, long_ = [], []
+
+    kb = keyboard_battery()
+    if kb is not None:
+        short.append(f"⌨ {kb}%")
+        long_.append(f"Klawiatura Redragon K719: {kb}%")
+
+    for model, pct, state, path in upower_devices():
+        chg = "⚡" if state in ("charging", "fully-charged") else ""
+        low = model.lower()
+        if "hidpp" in path or "logitech" in low or "mouse" in path:
+            icon = "🖱"
+        elif "airpods" in low or "headset" in path or "headphones" in path:
+            icon = "🎧"
+        else:
+            icon = "🔋"
+        short.append(f"{icon} {pct}%{chg}")
+        long_.append(f"{model}: {pct}%{' (ładowanie)' if chg else ''}")
+
+    for mac, name in connected_airpods():
+        b = airpods_battery(mac)
+        if not b:
+            continue
+        def fmt(k):
+            pct, chg = b[k]
+            return f"{pct}%{'⚡' if chg else ''}"
+        buds = [k for k in ("L", "R") if k in b]
+        if len(buds) == 2 and b["L"] == b["R"]:
+            short.append(f"🎧 {fmt('L')}")
+        elif buds:
+            short.append("🎧 " + "/".join(f"{k}{fmt(k)}" for k in buds))
+        long_.append(f"{name}: " + ", ".join(
+            f"{ {'L': 'lewa', 'R': 'prawa', 'Case': 'etui'}[k]} {fmt(k)}" for k in ("L", "R", "Case") if k in b))
+
+    print("  ".join(short) if short else "🔋 —")
+    for l in long_:
+        print(l)
+
+
+if __name__ == "__main__":
+    main()

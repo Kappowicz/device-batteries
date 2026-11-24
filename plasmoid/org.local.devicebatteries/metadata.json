@@ -1,0 +1,13 @@
+{
+  "KPlugin": {
+    "Id": "org.local.devicebatteries",
+    "Name": "Baterie urządzeń",
+    "Description": "Poziom baterii klawiatury, myszy i słuchawek",
+    "Icon": "battery-good",
+    "Authors": [{ "Name": "deck" }],
+    "License": "MIT",
+    "Version": "1.0"
+  },
+  "KPackageStructure": "Plasma/Applet",
+  "X-Plasma-API-Minimum-Version": "6.0"
+}
