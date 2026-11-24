@@ -4,7 +4,7 @@
     "Name": "Baterie urządzeń",
     "Description": "Poziom baterii klawiatury, myszy i słuchawek",
     "Icon": "battery-good",
-    "Authors": [{ "Name": "deck" }],
+    "Authors": [{ "Name": "Kappowicz" }],
     "License": "MIT",
     "Version": "1.0"
   },

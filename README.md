@@ -2,9 +2,7 @@
 
 Widżet na panel KDE Plasma 6 (SteamOS / Steam Machine), który pokazuje poziom baterii urządzeń bezprzewodowych:
 
-```
-⌨ 59%  🖱 81%  🎧 73%
-```
+![Widżet na panelu](docs/screenshot.png)
 
 | Urządzenie | Jak odczytywane |
 |---|---|
